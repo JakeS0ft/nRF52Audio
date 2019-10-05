@@ -11,6 +11,8 @@
 #include <Arduino.h>
 
 #define DATA_START_OFFSET 44 //Byte offset where the data always starts
+#define DEPOP_END_SAMPLES 512 //How many samples to use in dynamic de-popping at the end of a file
+#define DEPOP_START_SAMPLES 32 //How many samples to use in dynamic de-popping at the start of a file
 
 int SDWavFile::sFilesOpen = 0;
 
@@ -21,6 +23,10 @@ SDWavFile::SDWavFile(const char* apFilePath)
 	mVolume = 1.0;
 	mIsLooping = false;
 	mIsPaused = false;
+	mLastSample = 0;
+	mSamplesRead = 0;
+	mDepopStart = true;
+	mDepopEnd = true;
 
 	mFileHandle = SD.open(apFilePath, FILE_READ);
 	sFilesOpen++;
@@ -43,6 +49,10 @@ SDWavFile::SDWavFile()
 	mpFileReader = nullptr;
 	mIsStopped = false;
 	mBytesPerSample = 2;
+	mLastSample = 0;
+	mSamplesRead = 0;
+	mDepopStart = true;
+	mDepopEnd = true;
 }
 
 SDWavFile::~SDWavFile()
@@ -82,6 +92,7 @@ bool SDWavFile::SeekStartOfData()
 		//lSuccess = mFileHandle.seek(DATA_START_OFFSET);
 		mpFileReader->Reset();
 		mpFileReader->BufferSeek(DATA_START_OFFSET);
+		mSamplesRead = 0;
 	}
 
 	return true;
@@ -120,12 +131,32 @@ int SDWavFile::Fetch16BitSamples(int16_t* apBuffer, int aNumSamples)
 			apBuffer[lSampleIndex] = apBuffer[lSampleIndex] * mVolume;
 		}
 
+		//De-pop start of playback by averaging the first few samples
+		if(mDepopStart && mSamplesRead < DEPOP_START_SAMPLES)
+		{
+			apBuffer[lSampleIndex] = (apBuffer[lSampleIndex] + mLastSample) / 2;
+		}
+		//De-pop end of playback by ramping down volume so that when we loop we
+		//don't get an annoying pop sound
+		if(mDepopEnd && mFileHandle.available() < sizeof(int16_t)
+			&&mpFileReader->BufferAvailable() < DEPOP_END_SAMPLES)
+		{
+			float lAvailable = mpFileReader->BufferAvailable();
+			float lDepopEndSamples = DEPOP_END_SAMPLES;
+			float lDePopMultiplier = 1.0 - ((lDepopEndSamples - lAvailable) / lDepopEndSamples);
+
+			apBuffer[lSampleIndex] *= lDePopMultiplier;
+		}
+
+		mSamplesRead++;
+		mLastSample = apBuffer[lSampleIndex];
+
 		//If we ran out of data, check if we should loop back to the start
 		if(mFileHandle.available() < sizeof(int16_t)
 				&& mpFileReader->BufferAvailable() < sizeof(int16_t)
 				&& true == mIsLooping)
 		{
-				SeekStartOfData();
+			SeekStartOfData();
 		}
 
 	}
@@ -179,6 +210,37 @@ bool SDWavFile::IsEnded()
 	}
 
 	return lbEnded;
+}
+
+void SDWavFile::SetDePop(bool aStart, bool aEnd)
+{
+	mDepopStart = aStart;
+	mDepopEnd = aEnd;
+}
+
+void SDWavFile::Skip16BitSamples(int aNumSamples)
+{
+	//Read until requested size is met or we run out of data
+	for(int lSampleIndex = 0;
+		lSampleIndex < aNumSamples &&
+		(mFileHandle.available() >= sizeof(int16_t) || mpFileReader->BufferAvailable() >= sizeof(int16_t));
+		lSampleIndex++)
+	{
+		//Read 2 bytes (16 bits) sample from the file
+		int16_t lSkippedSample; //This sample will get thrown on the floor, we are skipping it
+		mpFileReader->FetchBufferedBytes((int8_t*)lSkippedSample, 2);
+
+		mSamplesRead++;
+
+		//If we ran out of data, check if we should loop back to the start
+		if(mFileHandle.available() < sizeof(int16_t)
+				&& mpFileReader->BufferAvailable() < sizeof(int16_t)
+				&& true == mIsLooping)
+		{
+			SeekStartOfData();
+		}
+
+	}
 }
 
 void SDWavFile::ReadHeader()

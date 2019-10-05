@@ -91,6 +91,12 @@ public:
 	void SetWavFile(SDWavFile* apWavFile, int aFileIndex = 0);
 
 	/**
+	 * Removes wave files from all channels. (sets them to null)
+	 * and clears the I2S data buffers.
+	 */
+	void ClearAllWavFiles();
+
+	/**
 	 * Starts playback.
 	 */
 	void StartPlayback();

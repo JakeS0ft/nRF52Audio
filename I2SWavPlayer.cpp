@@ -79,23 +79,35 @@ void I2SWavPlayer::SetWavFile(SDWavFile* apWavFile, int aFileIndex)
 			//Force down-sampling of 44.1KHz to 22.05 KHz
 			if(apWavFile->GetHeader().sampleRate == 44100 && mSampleRate == ee2205)
 			{
-				Serial.println("Downsampling enabled.");
+				//Serial.println("Downsampling enabled.");
 				maDownsampleParams[aFileIndex].mIsDownsample = true;
 			}
 			else //Don't do down-sampling
 			{
-				Serial.println("Downsampling disabled.");
+				//Serial.println("Downsampling disabled.");
 				maDownsampleParams[aFileIndex].mIsDownsample = false;
 			}
 
-			Serial.print("SampleRate: ");
-			Serial.println(apWavFile->GetHeader().sampleRate);
+			//Serial.print("SampleRate: ");
+			//Serial.println(apWavFile->GetHeader().sampleRate);
 
 			apWavFile->SeekStartOfData();
 
 
 		}
 	}
+}
+
+void  I2SWavPlayer::ClearAllWavFiles()
+{
+	for(int lIdx = 0; lIdx < MAX_WAV_FILES; lIdx++)
+	{
+		mapWavFile[lIdx] = nullptr;
+	}
+
+	//Flush the I2S buffers so only silence will play
+	memset(maBufferA, 0, sizeof(int32_t)*I2S_BUF_SIZE);
+	memset(maBufferB, 0, sizeof(int32_t)*I2S_BUF_SIZE);
 }
 
 void I2SWavPlayer::StartPlayback()
@@ -164,7 +176,7 @@ bool I2SWavPlayer::IsEnded()
 {
 	bool lIsEnded = true;
 
-	for(int lIdx = 0; lIdx < MAX_WAV_FILES; lIdx++)
+	for(int lIdx = 0; lIdx < MAX_WAV_FILES && lIsEnded; lIdx++)
 	{
 		if(mapWavFile[lIdx] != nullptr && !mapWavFile[lIdx]->IsEnded())
 		{
@@ -221,15 +233,12 @@ void I2SWavPlayer::GenerateMixedI2SSample(int32_t& arSampleOut)
 			int16_t lCurSample = 0;
 
 			//Handle down-sampling
-			if(maDownsampleParams[lWavFileIdx].mIsDownsample)
+			if(maDownsampleParams[lWavFileIdx].mIsDownsample && lpCurFilePtr->Available() >= sizeof(int32_t))
 			{
 				//Double-fetch to skip a sample if we have at least
 				//32 bytes (2 16-bit samples)left to read
-				if(lpCurFilePtr->Available() >= sizeof(int32_t))
-				{
-					lpCurFilePtr->Fetch16BitSamples(&lCurSample, 1);
-					lpCurFilePtr->Fetch16BitSamples(&lCurSample, 1);
-				}
+				lpCurFilePtr->Skip16BitSamples(1);
+				lpCurFilePtr->Fetch16BitSamples(&lCurSample, 1);
 			}
 			else
 			{

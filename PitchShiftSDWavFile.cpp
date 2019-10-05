@@ -75,10 +75,8 @@ void PitchShiftSDWavFile::CalculateCurSample()
 	//Speed up playback by skipping samples
 	else if(mPlaybackRate > 0)
 	{
-		for(int lIdx = 0; lIdx < mShiftVars.mNumSamplesToSkip; lIdx++)
-		{
-			SDWavFile::Fetch16BitSamples(&mCurSample, 1);
-		}
+		Skip16BitSamples(mShiftVars.mNumSamplesToSkip);
+		SDWavFile::Fetch16BitSamples(&mCurSample, 1);
 	}
 
 	mSampleIndex++;

@@ -150,6 +150,25 @@ public:
 	 */
 	virtual bool IsEnded();
 
+	/**
+	 * Enable/Disable the De-pop algorithm.
+	 * The De-pop alogrithm attempts to eliminate pops that can occur when
+	 * a file first starts or when playback loops from the end to the start.
+	 * When looping is enabled, it is recommended that both start and end
+	 * de-pop be enabled.
+	 * Args:
+	 *   aStart - TRUE= Enable for start of file, FALSE = disabled
+	 *   aEnd - TRUE = Enable for end of file, FALSE = disabled
+	 */
+	virtual void SetDePop(bool aStart, bool aEnd);
+
+	/**
+	 * Skips samples. All read pointers are advanced.
+	 * Args:
+	 *  aNumSamples - Number of 16-bit samples to skip.
+	 */
+	virtual void Skip16BitSamples(int aNumSamples);
+
 protected:
 
 	/**
@@ -204,6 +223,18 @@ protected:
 
 	//Manage buffering the file data
 	BufferedFileReader* mpFileReader;
+
+	//Last fetched sample
+	int16_t mLastSample;
+
+	//Keep track of how many samples were read
+	unsigned long mSamplesRead;
+
+	//Apply de-pop to start of file
+	bool mDepopStart;
+
+	//Apply de-pop to end of file
+	bool mDepopEnd;
 
 };
 
