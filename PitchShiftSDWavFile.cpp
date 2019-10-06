@@ -24,8 +24,12 @@
 PitchShiftSDWavFile::PitchShiftSDWavFile(const char* aFilePath)
 : SDWavFile(aFilePath) //Call superclass constructor
 {
-	mPlaybackRate = 0;
 	mCurSample = 0;
+
+	mSkipFactor = 0.0;
+	mRepeatFactor = 0.0;
+	mRepeatAccumulator = 0.0;
+	mSkipAccumulator = 0.0;
 }
 
 PitchShiftSDWavFile::~PitchShiftSDWavFile()
@@ -54,49 +58,79 @@ int PitchShiftSDWavFile::Fetch16BitSamples(int16_t* apBuffer, int aNumSamples)
 
 void PitchShiftSDWavFile::CalculateCurSample()
 {
-	//Fetch the next sample as usual, no rate change
-	if(mPlaybackRate == 0 || mSampleIndex == 0)
+	//Always fetch the first sample
+	if(0 == mSampleIndex)
 	{
 		SDWavFile::Fetch16BitSamples(&mCurSample, 1);
 	}
-	//Slow down playback by repeating samples
-	else if(mPlaybackRate < 0)
+	//We want to skip samples to speed up playback
+	else if(mSkipFactor > 0.0)
 	{
-		if(mSampleIndex % mShiftVars.mNumSamplesToRepeat == 0)
+		if(mSkipAccumulator >= 1.0)
 		{
-			//Do nothing, just use the already buffered sample
+			while(mSkipAccumulator >= 1.0)
+			{
+				SDWavFile::Skip16BitSamples(1);
+				mSkipAccumulator -= 1.0;
+			}
 		}
 		else
 		{
+			mSkipAccumulator += mSkipFactor;
+		}
+
+		SDWavFile::Fetch16BitSamples(&mCurSample, 1);
+	}
+	//We want to repeat samples to slow down playback
+	else if(mRepeatFactor > 0.0)
+	{
+		if(mRepeatAccumulator >= 1.0)
+		{
+			//Repeat last sample (don't update mCurSample) and adjust the accumulator
+			mRepeatAccumulator =- 1.0;
+		}
+		else
+		{
+			//Fetch the next sample and adjust the accumulator
+			mRepeatAccumulator += mRepeatFactor;
 			SDWavFile::Fetch16BitSamples(&mCurSample, 1);
-			mShiftVars.mSamplesRepeatedCounter = 0;
 		}
 	}
-	//Speed up playback by skipping samples
-	else if(mPlaybackRate > 0)
+	//Play at normal speed
+	else
 	{
-		Skip16BitSamples(mShiftVars.mNumSamplesToSkip);
 		SDWavFile::Fetch16BitSamples(&mCurSample, 1);
 	}
 
 	mSampleIndex++;
 }
 
-void PitchShiftSDWavFile::SetRate(int aRate)
+void PitchShiftSDWavFile::SetRate(float aRate)
 {
-	mPlaybackRate = aRate;
-
-	mShiftVars.mNumSamplesToRepeat = 0;
-	mShiftVars.mNumSamplesToSkip = 0;
-
-	if(mPlaybackRate < 0)
+	//Slow it down
+	if(aRate < 0.0)
 	{
-		mShiftVars.mNumSamplesToRepeat = 8 - abs(mPlaybackRate);
-		mShiftVars.mNumSamplesToSkip = 0;
+		mRepeatFactor = -1.0 * aRate; //Flips negative value to positive
+
+		//Turn off the stuff that would speed up playback
+		mSkipFactor = 0.0;
+		mSkipAccumulator = 0.0;
 	}
-	else if(mPlaybackRate > 0)
+	//Speed it up
+	else if(aRate > 0.0)
 	{
-		mShiftVars.mNumSamplesToRepeat = 0;
-		mShiftVars.mNumSamplesToSkip = aRate;
+		mSkipFactor = aRate;
+
+		//Turn off the stuff that would slow down playback
+		mRepeatFactor = 0.0;
+		mRepeatAccumulator = 0.0;
+	}
+	//Play at normal speed
+	else
+	{
+		mRepeatFactor = 0.0;
+		mRepeatAccumulator = 0.0;
+		mSkipFactor = 0.0;
+		mSkipAccumulator = 0.0;
 	}
 }

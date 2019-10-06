@@ -59,28 +59,10 @@ public:
 	 * Sets the pitch rate. Negative values will decrease the pitch, positive
 	 * values will increase the pitch.
 	 * Args:
-	 *  aRate - A value from -8 to 8 that defines how much the pitch will change
+	 *  aRate - A value from that defines how much the pitch will change.
 	 */
-	virtual void SetRate(int aRate);
+	virtual void SetRate(float aRate);
 protected:
-
-	//Data structure to hold pitch shift variables
-	struct tPitchShiftVariables
-	{
-		//Number of samples to skip
-		unsigned int mNumSamplesToSkip = 0;
-		//Keep track of how many samples have been skipped
-		int mSamplesSkippedCounter = 0;
-
-		//Number of samples ot repeat
-		unsigned int mNumSamplesToRepeat = 0;
-		//Keep track of how any samples have been repeated
-		int mSamplesRepeatedCounter = 0;
-
-		//Multiplier for how many samples should be skipped or repeated
-		unsigned int mMultiplicity = 0;;
-	};
-
 
 	/**
 	 * Calculates the next sample based on current pitch shift settings.
@@ -88,17 +70,21 @@ protected:
 	 */
 	void CalculateCurSample();
 
-	//Number of samples to skip or repeat from each data block
-	int mPlaybackRate;
-
 	//Current sample
 	int16_t mCurSample;
 
-	//Sample index, increments each time a sample is fetched by Fetch16BitSamples()
+	//Sample index, increments each time a sample is calculated
 	unsigned long mSampleIndex;
 
-	//Keep track of pitch-shift variables
-	tPitchShiftVariables mShiftVars;
+	//How much to increment the Skip Accumulator each time a sample is read
+	float mSkipFactor;
+	//Increments each time a sample is read, decrements when a sample is skipped
+	float mSkipAccumulator;
+
+	//How much to increment the Repeat Accumulator each time a sample is read
+	float mRepeatFactor;
+	//Increments each time a sample is read, decrements when sample is repeated
+	float mRepeatAccumulator;
 };
 
 #endif /* PITCHSHIFTSDWAVFILE_H_ */

@@ -10,15 +10,15 @@
 #define PIN_SCL 16
 #define PIN_SDA 15
 
-//Plays a single wave file until it ends
+//Plays a single wave at different speeds/pitches
 void PlayWavFile()
 {
 	//Wav files to play. Change "2205/swing2.wav" to match the name of
 	//whatever file you are playing.
-	PitchShiftSDWavFile* lpWavFile1 = new PitchShiftSDWavFile("2205/swing2.wav");
+	PitchShiftSDWavFile* lpWavFile1 = new PitchShiftSDWavFile("2205/i_font1/swng01.wav");
 	lpWavFile1->SetLooping(true);
 
-	int lPlaybackRate = 0; //Default, not change in playback rate
+	float lPlaybackRate = 0.0; //Default, not change in playback rate
 
 	//Set playback rate factor
 	lpWavFile1->SetRate(lPlaybackRate);
@@ -37,15 +37,14 @@ void PlayWavFile()
 	                                       //ee4410 = 44.1KHz
 
 	lpPlayer->SetWavFile(lpWavFile1);      //Set file object to play
-	lpPlayer->SetVolume(0.3);              //set master volume, 0.0 (mute) to 1.0 (full volume)
+	lpPlayer->SetVolume(0.2);              //set master volume, 0.0 (mute) to 1.0 (full volume)
 	lpPlayer->StartPlayback();             //Begin playing the wave file
 
 	Serial.println("Playback started.");
 
 	unsigned long lStartTime = millis();
 
-	int lRate = 0;
-	int lLastRate = lRate;
+	float lRate = 0.0; //Normal speed
 	unsigned long lNextChangeTime = millis() + 3000; //Change rate this often
 
 	//Try playing at slower rates
@@ -55,7 +54,7 @@ void PlayWavFile()
 
 		if(lNowTime >= lNextChangeTime)
 		{
-			lRate--; //Slow down playback/lower pitch
+			lRate -= 0.1; //Slow down playback/lower pitch
 			lpWavFile1->SetRate(lRate);
 			lpWavFile1->SeekStartOfData();
 			lNextChangeTime = lNowTime + 2000;
@@ -63,7 +62,7 @@ void PlayWavFile()
 			Serial.println(lRate);
 		}
 
-		if(lNowTime > lStartTime+20000 || lRate < -7)
+		if(lNowTime > lStartTime+30000 || lRate < -3.0)
 		{
 			break;
 		}
@@ -71,16 +70,15 @@ void PlayWavFile()
 
 	//Try playing at faster rates
 	lStartTime = millis();
-	lRate = 0;
+	lRate = 0.0;
 	lNextChangeTime = millis() + 2000; //Change rate this often
-	lpWavFile1->SetVolume(0.3); //Higher pitches are louder
 	while(false == lpPlayer->ContinuePlayback())
 	{
 		unsigned long lNowTime = millis();
 
 		if(lNowTime >= lNextChangeTime)
 		{
-			lRate++; //Slow down playback/lower pitch
+			lRate += 0.1; //Speed up playback/raise pitch
 			lpWavFile1->SetRate(lRate);
 			lpWavFile1->SeekStartOfData();
 			lNextChangeTime = lNowTime + 2000;
@@ -88,7 +86,7 @@ void PlayWavFile()
 			Serial.println(lRate);
 		}
 
-		if(lRate > 7)
+		if(lRate > 3.0)
 		{
 			break;
 		}
