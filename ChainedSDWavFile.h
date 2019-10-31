@@ -13,47 +13,55 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ******************************************************************************/
 /*
- * SDWavFile.h
+ * ChainedSDWavFile.h
  *
- *  Created on: May 30, 2019
+ *  Created on: Oct 31, 2019
  *      Author: JakeSoft
  */
 
-#ifndef SDWAVFILE_H_
-#define SDWAVFILE_H_
+#ifndef _CHAINEDSDWAVFILE_H_
+#define _CHAINEDSDWAVFILE_H_
 
-#include <Arduino.h>
-#include <SD.h>
-#include "BufferedFileReader.h"
 #include "ISDWavFile.h"
+#include "SDWavFile.h"
+
+#define NUM_CHAINED_FILES 2
 
 /**
- * This class represents a single .wav file on an SD card. It is
- * responsible for opening the file, reading the data, and making
- * the samples available.
+ * This class allows for seamless (gapless) transition between two wav files.
+ * The first file is played until it ends, then the second file starts
+ * right after the first is done. The second file can be optionally looped by
+ * calling the SetLooping() method.
+ * NOTE: It is not recommend to mix files with different sample rates in a chain.
  */
-class SDWavFile : public ISDWavFile
+class ChainedSDWavFile : public ISDWavFile
 {
 public:
+
 	/**
 	 * Constructor.
 	 * Args:
-	 *  aFilePath - Name of file to read
+	 *  aFilePath - First file to play
+	 *  aNextFilePath - File to play when the first file is done
 	 */
-	SDWavFile(const char* aFilePath);
+	ChainedSDWavFile(const char* aFilePath, const char* aNextFilePath);
 
 	/**
-	 * Destructor.
+	 * Descturctor.
 	 */
-	virtual ~SDWavFile();
+	~ChainedSDWavFile();
 
 	/**
 	 * Fetch the underlying file handle.
+	 * NOTE: Fetches the handle of the current file being played.
+	 * If first file has finished playback, then this will return
+	 * the file handle for the second file.
 	 */
 	File& GetFileHandle();
 
 	/**
-	 * Fetch basic file header
+	 * Fetch basic file header.
+	 * NOTE: Fetches the file header of the curent file being played.
 	 */
 	const tWavFileHeader& GetHeader();
 
@@ -63,7 +71,7 @@ public:
 	const tWavDataHeader& GetDataHeader();
 
 	/**
-	 * Close the file.
+	 * Close the files.
 	 */
 	virtual void Close();
 
@@ -115,27 +123,19 @@ public:
 	/**
 	 * Sets the paused flag. See IsPaused().
 	 */
-	void Pause();
+	virtual void Pause();
 
 	/**
 	 * Check if this file is paused.
 	 *
 	 * Return: TRUE if paused, FALSE otherwise
 	 */
-	bool IsPaused();
+	virtual bool IsPaused();
 
 	/**
 	 * Clears the paused flag. See IsPaused().
 	 */
-	void UnPause();
-
-	/**
-	 * Fetch total number of files open globally.
-	 */
-	inline static int GetNumFilesOpen()
-	{
-		return sFilesOpen;
-	}
+	virtual void UnPause();
 
 	/**
 	 * Check if file has run out of data.
@@ -165,71 +165,11 @@ public:
 
 protected:
 
-	/**
-	 * Default consturctor. Made protected so subclasses
-	 * don't have to deal with the normal constructer args.
-	 */
-	SDWavFile();
-
-	/**
-	 * Read and store the wav file header.
-	 */
-	void ReadHeader();
-
-	/**
-	 * Read and store the data block header.
-	 */
-	void ReadDataHeader();
-
-	/**
-	 * Byte swap the 16-bit words in an I2S sample
-	 */
-	void ByteSwapI2SSample(int32_t* aSample);
-
-	//File path
-	const char* mpFilePath;
-
-	//Wav file header data
-	tWavFileHeader mHeader;
-	//Data block header
-	tWavDataHeader mDataHeader;
-
-	//File handle
-	File mFileHandle;
-
-	//Bytes per sample (should always be 2)
-	int mBytesPerSample;
-
-	//Volume (0.0 to 1.0)
-	float mVolume;
-
-	//Looping flag
-	bool mIsLooping;
-
-	//Paused flag
-	bool mIsPaused;
-
-	//Stopped flag
-	bool mIsStopped;
-
-	//Keep track of how many Wav files are opened globally
-	static int sFilesOpen;
-
-	//Manage buffering the file data
-	BufferedFileReader* mpFileReader;
-
-	//Last fetched sample
-	int16_t mLastSample;
-
-	//Keep track of how many samples were read
-	unsigned long mSamplesRead;
-
-	//Apply de-pop to start of file
-	bool mDepopStart;
-
-	//Apply de-pop to end of file
-	bool mDepopEnd;
-
+	SDWavFile* mpFiles[NUM_CHAINED_FILES];
+	int mFileIndex;
 };
 
-#endif /* SDWAVFILE_H_ */
+
+
+
+#endif /* _CHAINEDSDWAVFILE_H_ */

@@ -30,5 +30,6 @@
 #include "I2SWavPlayer.h"
 #include "SDWavFile.h"
 #include "PitchShiftSDWavFile.h"
+#include "ChainedSDWavFile.h"
 
 #endif

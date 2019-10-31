@@ -69,7 +69,7 @@ bool I2SWavPlayer::Init()
 	return true;
 }
 
-void I2SWavPlayer::SetWavFile(SDWavFile* apWavFile, int aFileIndex)
+void I2SWavPlayer::SetWavFile(ISDWavFile* apWavFile, int aFileIndex)
 {
 	if(aFileIndex < MAX_WAV_FILES && aFileIndex >= 0)
 	{
@@ -225,7 +225,7 @@ void I2SWavPlayer::GenerateMixedI2SSample(int32_t& arSampleOut)
 	int32_t lMixedSampleLeft32 = 0;
 	for(int lWavFileIdx = 0; lWavFileIdx < MAX_WAV_FILES; lWavFileIdx += 2)
 	{
-		SDWavFile* lpCurFilePtr = mapWavFile[lWavFileIdx];
+		ISDWavFile* lpCurFilePtr = mapWavFile[lWavFileIdx];
 		if(lpCurFilePtr != nullptr
 				&& !lpCurFilePtr->IsPaused()
 				&& !lpCurFilePtr->IsEnded())
@@ -259,7 +259,7 @@ void I2SWavPlayer::GenerateMixedI2SSample(int32_t& arSampleOut)
 	int32_t lMixedSampleRight32 = 0;
 	for(int lWavFileIdx = 1; lWavFileIdx < MAX_WAV_FILES; lWavFileIdx += 2)
 	{
-		SDWavFile* lpCurFilePtr = mapWavFile[lWavFileIdx];
+		ISDWavFile* lpCurFilePtr = mapWavFile[lWavFileIdx];
 		if(lpCurFilePtr != nullptr
 				&& !lpCurFilePtr->IsPaused()
 				&& !lpCurFilePtr->IsEnded())

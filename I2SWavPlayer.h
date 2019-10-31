@@ -24,7 +24,7 @@
 #define I2SWAVPLAYER_H_
 
 #include "Arduino.h"
-#include "SDWavFile.h"
+#include "ISDWavFile.h"
 
 //I2S buffer size
 #define I2S_BUF_SIZE 2048
@@ -88,7 +88,7 @@ public:
 	 *   aFileIndex - (optional) In the case of polyphonic playback,
 	 *                used to enumerate the file being provided
 	 */
-	void SetWavFile(SDWavFile* apWavFile, int aFileIndex = 0);
+	void SetWavFile(ISDWavFile* apWavFile, int aFileIndex = 0);
 
 	/**
 	 * Removes wave files from all channels. (sets them to null)
@@ -199,7 +199,7 @@ protected:
 	bool mBufferASelected;
 
 	//Pointers to WAV file object to play
-	SDWavFile* mapWavFile[MAX_WAV_FILES];
+	ISDWavFile* mapWavFile[MAX_WAV_FILES];
 
 	struct tDownSampleParameters
 	{

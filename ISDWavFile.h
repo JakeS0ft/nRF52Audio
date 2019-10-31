@@ -13,64 +13,71 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  ******************************************************************************/
 /*
- * SDWavFile.h
+ * ISDWavFile.h
  *
- *  Created on: May 30, 2019
+ *  Created on: Oct 31, 2019
  *      Author: JakeSoft
  */
 
-#ifndef SDWAVFILE_H_
-#define SDWAVFILE_H_
+#ifndef _ISDWAVFILE_H_
+#define _ISDWAVFILE_H_
 
-#include <Arduino.h>
 #include <SD.h>
-#include "BufferedFileReader.h"
-#include "ISDWavFile.h"
 
-/**
- * This class represents a single .wav file on an SD card. It is
- * responsible for opening the file, reading the data, and making
- * the samples available.
- */
-class SDWavFile : public ISDWavFile
+struct tWavFileHeader
+{
+    char mChunkID[4];       //"RIFF" = 0x46464952
+	uint32_t mChunkSize;    //28 [+ sizeof(wExtraFormatBytes) + wExtraFormatBytes] + sum(sizeof(chunk.id) + sizeof(chunk.size) + chunk.size)
+	char mFormat[4];        //"WAVE" = 0x45564157
+	char mSubchunk1ID[4];   //"fmt " = 0x20746D66
+	uint32_t subchunk1Size; //16 [+ sizeof(wExtraFormatBytes) + wExtraFormatBytes]
+	uint16_t audioFormat;
+	uint16_t numChannels;
+	uint32_t sampleRate;
+	uint32_t byteRate;
+	uint16_t blockAlign;
+	uint16_t bitsPerSample;
+};
+
+struct tWavDataHeader
+{
+    char mID[4]; //"data" = 0x61746164
+    uint32_t mSize;  //Chunk data bytes
+};
+
+//Interface class for wav files
+class ISDWavFile
 {
 public:
-	/**
-	 * Constructor.
-	 * Args:
-	 *  aFilePath - Name of file to read
-	 */
-	SDWavFile(const char* aFilePath);
-
-	/**
-	 * Destructor.
-	 */
-	virtual ~SDWavFile();
-
-	/**
-	 * Fetch the underlying file handle.
-	 */
-	File& GetFileHandle();
-
-	/**
-	 * Fetch basic file header
-	 */
-	const tWavFileHeader& GetHeader();
-
-	/**
-	 * Fetch header for the data block
-	 */
-	const tWavDataHeader& GetDataHeader();
+	virtual ~ISDWavFile()
+	{
+		//Do nothing
+	}
 
 	/**
 	 * Close the file.
 	 */
-	virtual void Close();
+	virtual void Close() = 0;
+
+	/**
+	 * Fetch the underlying file handle.
+	 */
+	virtual File& GetFileHandle() = 0;
+
+	/**
+	 * Fetch basic file header
+	 */
+	virtual const tWavFileHeader& GetHeader() = 0;
+
+	/**
+	 * Fetch header for the data block
+	 */
+	virtual const tWavDataHeader& GetDataHeader() = 0;
 
 	/**
 	 * Force the file's read pointer to the start of the data block
 	 */
-	virtual bool SeekStartOfData();
+	virtual bool SeekStartOfData() = 0;
 
 	/**
 	 * Fetch how many bytes are available to be read before
@@ -80,7 +87,7 @@ public:
 	 *
 	 * Returns: Number of bytes left to be read
 	 */
-	virtual int Available();
+	virtual int Available() = 0;
 
 	/**
 	 * Fetch the sound data as 16-bit samples
@@ -89,7 +96,7 @@ public:
 	 *   aNumSamples - How many samples to read
 	 * Returns: Number of samples filled
 	 */
-	virtual int Fetch16BitSamples(int16_t* apBuffer, int aNumSamples);
+	virtual int Fetch16BitSamples(int16_t* apBuffer, int aNumSamples) = 0;
 
 	/**
 	 * Set the output volume. This can be used to adjust the
@@ -99,7 +106,7 @@ public:
 	 * Args:
 	 *   aVolume - Any value between 1.0 (max) and 0.0 (mute)
 	 */
-	virtual void SetVolume(float aVolume);
+	virtual void SetVolume(float aVolume) = 0;
 
 	/**
 	 * Enable/Disable looping. When looping is enabled and the end of file is
@@ -110,39 +117,31 @@ public:
 	 * Args:
 	 *   aLoopingEnable - TRUE = Do looping, FALSE = Play once, no looping
 	 */
-	virtual void SetLooping(bool aLoopingEnable);
+	virtual void SetLooping(bool aLoopingEnable) = 0;
 
 	/**
 	 * Sets the paused flag. See IsPaused().
 	 */
-	void Pause();
+	virtual void Pause() = 0;
 
 	/**
 	 * Check if this file is paused.
 	 *
 	 * Return: TRUE if paused, FALSE otherwise
 	 */
-	bool IsPaused();
+	virtual bool IsPaused() = 0;
 
 	/**
 	 * Clears the paused flag. See IsPaused().
 	 */
-	void UnPause();
-
-	/**
-	 * Fetch total number of files open globally.
-	 */
-	inline static int GetNumFilesOpen()
-	{
-		return sFilesOpen;
-	}
+	virtual void UnPause() = 0;
 
 	/**
 	 * Check if file has run out of data.
 	 * NOTE: This will always be false if looping is enabled.
 	 * Returns: TRUE if file has run out of data, FALSE otherwise.
 	 */
-	virtual bool IsEnded();
+	virtual bool IsEnded() = 0;
 
 	/**
 	 * Enable/Disable the De-pop algorithm.
@@ -154,82 +153,15 @@ public:
 	 *   aStart - TRUE= Enable for start of file, FALSE = disabled
 	 *   aEnd - TRUE = Enable for end of file, FALSE = disabled
 	 */
-	virtual void SetDePop(bool aStart, bool aEnd);
+	virtual void SetDePop(bool aStart, bool aEnd) = 0;
 
 	/**
 	 * Skips samples. All read pointers are advanced.
 	 * Args:
 	 *  aNumSamples - Number of 16-bit samples to skip.
 	 */
-	virtual void Skip16BitSamples(int aNumSamples);
-
-protected:
-
-	/**
-	 * Default consturctor. Made protected so subclasses
-	 * don't have to deal with the normal constructer args.
-	 */
-	SDWavFile();
-
-	/**
-	 * Read and store the wav file header.
-	 */
-	void ReadHeader();
-
-	/**
-	 * Read and store the data block header.
-	 */
-	void ReadDataHeader();
-
-	/**
-	 * Byte swap the 16-bit words in an I2S sample
-	 */
-	void ByteSwapI2SSample(int32_t* aSample);
-
-	//File path
-	const char* mpFilePath;
-
-	//Wav file header data
-	tWavFileHeader mHeader;
-	//Data block header
-	tWavDataHeader mDataHeader;
-
-	//File handle
-	File mFileHandle;
-
-	//Bytes per sample (should always be 2)
-	int mBytesPerSample;
-
-	//Volume (0.0 to 1.0)
-	float mVolume;
-
-	//Looping flag
-	bool mIsLooping;
-
-	//Paused flag
-	bool mIsPaused;
-
-	//Stopped flag
-	bool mIsStopped;
-
-	//Keep track of how many Wav files are opened globally
-	static int sFilesOpen;
-
-	//Manage buffering the file data
-	BufferedFileReader* mpFileReader;
-
-	//Last fetched sample
-	int16_t mLastSample;
-
-	//Keep track of how many samples were read
-	unsigned long mSamplesRead;
-
-	//Apply de-pop to start of file
-	bool mDepopStart;
-
-	//Apply de-pop to end of file
-	bool mDepopEnd;
+	virtual void Skip16BitSamples(int aNumSamples) = 0;
 
 };
 
-#endif /* SDWAVFILE_H_ */
+#endif /* _ISDWAVFILE_H_ */
